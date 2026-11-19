@@ -59,7 +59,7 @@ export class ArticleService {
   }
 
   private getAuthHeaders(): HttpHeaders {
-    const token = sessionStorage.getItem('b4_admin_token') || '';
+    const token = this.auth.getToken() || '';
     return new HttpHeaders({ Authorization: `Bearer ${token}` });
   }
 
