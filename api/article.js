@@ -1,7 +1,7 @@
-const { Redis } = require('@upstash/redis');
 const webpush = require('web-push');
 
-const redis = Redis.fromEnv();
+const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
 const ARTICLES_KEY = 'b4comenta:articles';
 const SUBS_KEY = 'b4comenta:push_subs';
 
@@ -11,6 +11,23 @@ if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
     process.env.VAPID_PUBLIC_KEY,
     process.env.VAPID_PRIVATE_KEY
   );
+}
+
+async function redisCommand(command, ...args) {
+  if (!REDIS_URL || !REDIS_TOKEN) {
+    throw new Error('Variáveis do Upstash Redis não configuradas.');
+  }
+  const response = await fetch(REDIS_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${REDIS_TOKEN}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify([command, ...args])
+  });
+  const data = await response.json();
+  if (data.error) throw new Error(data.error);
+  return data.result;
 }
 
 function isAuthorized(req) {
@@ -23,7 +40,8 @@ function isAuthorized(req) {
 module.exports = async (req, res) => {
   try {
     if (req.method === 'GET') {
-      const articles = (await redis.get(ARTICLES_KEY)) || [];
+      const raw = await redisCommand('GET', ARTICLES_KEY);
+      const articles = raw ? JSON.parse(raw) : [];
       return res.status(200).json(articles);
     }
 
@@ -44,11 +62,14 @@ module.exports = async (req, res) => {
         date: new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Bahia' })
       };
 
-      const articles = (await redis.get(ARTICLES_KEY)) || [];
+      const rawArticles = await redisCommand('GET', ARTICLES_KEY);
+      const articles = rawArticles ? JSON.parse(rawArticles) : [];
       const updated = [newArticle, ...articles];
-      await redis.set(ARTICLES_KEY, updated);
+      await redisCommand('SET', ARTICLES_KEY, JSON.stringify(updated));
 
-      const subs = (await redis.get(SUBS_KEY)) || [];
+      // Dispara Web Push para os inscritos
+      const rawSubs = await redisCommand('GET', SUBS_KEY);
+      const subs = rawSubs ? JSON.parse(rawSubs) : [];
       if (subs.length > 0 && process.env.VAPID_PUBLIC_KEY) {
         const payload = JSON.stringify({
           notification: {
@@ -66,14 +87,13 @@ module.exports = async (req, res) => {
               await webpush.sendNotification(sub, payload);
               validSubs.push(sub);
             } catch (err) {
-              // Remove inscrições expiradas/canceladas (404 ou 410)
               if (err.statusCode !== 404 && err.statusCode !== 410) {
                 validSubs.push(sub);
               }
             }
           })
         );
-        await redis.set(SUBS_KEY, validSubs);
+        await redisCommand('SET', SUBS_KEY, JSON.stringify(validSubs));
       }
 
       return res.status(201).json(newArticle);
@@ -81,15 +101,16 @@ module.exports = async (req, res) => {
 
     if (req.method === 'DELETE') {
       const id = req.query?.id;
-      const articles = (await redis.get(ARTICLES_KEY)) || [];
+      const rawArticles = await redisCommand('GET', ARTICLES_KEY);
+      const articles = rawArticles ? JSON.parse(rawArticles) : [];
       const updated = articles.filter((a) => a.id !== id);
-      await redis.set(ARTICLES_KEY, updated);
+      await redisCommand('SET', ARTICLES_KEY, JSON.stringify(updated));
       return res.status(200).json({ ok: true });
     }
 
     return res.status(405).json({ error: 'Método não permitido.' });
   } catch (error) {
     console.error('Erro em /api/articles:', error);
-    return res.status(500).json({ error: 'Erro interno no servidor.' });
+    return res.status(500).json({ error: error.message || 'Erro interno no servidor.' });
   }
 };

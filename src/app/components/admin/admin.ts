@@ -41,7 +41,11 @@ export class Admin {
       this.resetForm();
       this.toast.show('Matéria publicada na nuvem e notificação enviada!');
     } catch (err: any) {
-      const msg = err?.error?.error || 'Erro ao publicar matéria no servidor.';
+      const apiError = err?.error?.error;
+      const msg =
+        typeof apiError === 'string'
+          ? apiError
+          : apiError?.message || err?.message || 'Erro ao publicar matéria no servidor.';
       this.toast.show(msg);
       console.error('Falha ao publicar:', err);
     } finally {
