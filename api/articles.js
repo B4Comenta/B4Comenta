@@ -39,7 +39,12 @@ async function sendPushNotifications(article) {
   const privateKey = (process.env.VAPID_PRIVATE_KEY || '').trim();
   const subject = (process.env.VAPID_SUBJECT || 'mailto:contato@b4comenta.com').trim();
 
-  if (!webpush || !publicKey || !privateKey) {
+  if (!webpush) {
+    console.warn('Web Push ignorado: pacote web-push não carregado.');
+    return;
+  }
+  if (!publicKey || !privateKey) {
+    console.warn('Web Push ignorado: VAPID_PUBLIC_KEY ou VAPID_PRIVATE_KEY não configurada na Vercel.');
     return;
   }
 
@@ -48,6 +53,7 @@ async function sendPushNotifications(article) {
   const rawSubs = await redisCommand('GET', SUBS_KEY);
   const subs = rawSubs ? JSON.parse(rawSubs) : [];
   if (!Array.isArray(subs) || subs.length === 0) {
+    console.log('Web Push ignorado: nenhuma inscrição em', SUBS_KEY);
     return;
   }
 
@@ -67,11 +73,17 @@ async function sendPushNotifications(article) {
 
   const validSubs = [];
   await Promise.all(
-    subs.map(async (sub) => {
+    subs.map(async (sub, index) => {
       try {
         await webpush.sendNotification(sub, payload);
+        console.log(`Push enviado com sucesso para inscrição #${index}`);
         validSubs.push(sub);
       } catch (err) {
+        console.error(
+          `Erro no push #${index}:`,
+          err?.statusCode || 'sem status',
+          err?.body || err?.message || err
+        );
         if (err?.statusCode !== 404 && err?.statusCode !== 410) {
           validSubs.push(sub);
         }
