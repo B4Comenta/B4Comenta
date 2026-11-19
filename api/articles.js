@@ -1,16 +1,13 @@
-const webpush = require('web-push');
-
 const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
 const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
 const ARTICLES_KEY = 'b4comenta:articles';
 const SUBS_KEY = 'b4comenta:push_subs';
 
-if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
-  webpush.setVapidDetails(
-    process.env.VAPID_SUBJECT || 'mailto:contato@b4comenta.com',
-    process.env.VAPID_PUBLIC_KEY,
-    process.env.VAPID_PRIVATE_KEY
-  );
+let webpush = null;
+try {
+  webpush = require('web-push');
+} catch (err) {
+  console.warn('Pacote web-push não encontrado:', err.message);
 }
 
 async function redisCommand(command, ...args) {
@@ -35,6 +32,54 @@ function isAuthorized(req) {
   const token = authHeader.replace('Bearer ', '').trim();
   const adminPassword = (process.env.ADMIN_PASSWORD || '').trim();
   return Boolean(adminPassword && token === adminPassword);
+}
+
+async function sendPushNotifications(article) {
+  const publicKey = (process.env.VAPID_PUBLIC_KEY || '').trim();
+  const privateKey = (process.env.VAPID_PRIVATE_KEY || '').trim();
+  const subject = (process.env.VAPID_SUBJECT || 'mailto:contato@b4comenta.com').trim();
+
+  if (!webpush || !publicKey || !privateKey) {
+    return;
+  }
+
+  webpush.setVapidDetails(subject, publicKey, privateKey);
+
+  const rawSubs = await redisCommand('GET', SUBS_KEY);
+  const subs = rawSubs ? JSON.parse(rawSubs) : [];
+  if (!Array.isArray(subs) || subs.length === 0) {
+    return;
+  }
+
+  const payload = JSON.stringify({
+    notification: {
+      title: `B4 Comenta | ${article.category}`,
+      body: article.title,
+      icon: '/icons/icon-192x192.png',
+      badge: '/icons/icon-72x72.png',
+      data: {
+        onActionClick: {
+          default: { operation: 'openWindow', url: '/' }
+        }
+      }
+    }
+  });
+
+  const validSubs = [];
+  await Promise.all(
+    subs.map(async (sub) => {
+      try {
+        await webpush.sendNotification(sub, payload);
+        validSubs.push(sub);
+      } catch (err) {
+        if (err?.statusCode !== 404 && err?.statusCode !== 410) {
+          validSubs.push(sub);
+        }
+      }
+    })
+  );
+
+  await redisCommand('SET', SUBS_KEY, JSON.stringify(validSubs));
 }
 
 module.exports = async (req, res) => {
@@ -67,42 +112,10 @@ module.exports = async (req, res) => {
       const updated = [newArticle, ...articles];
       await redisCommand('SET', ARTICLES_KEY, JSON.stringify(updated));
 
-      // Dispara Web Push para os inscritos no formato esperado pelo ngsw-worker do Angular
-      if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
-        const rawSubs = await redisCommand('GET', SUBS_KEY);
-        const subs = rawSubs ? JSON.parse(rawSubs) : [];
-
-        if (subs.length > 0) {
-          const payload = JSON.stringify({
-            notification: {
-              title: `B4 Comenta | ${newArticle.category}`,
-              body: newArticle.title,
-              icon: '/icons/icon-192x192.png',
-              badge: '/icons/icon-72x72.png',
-              data: {
-                onActionClick: {
-                  default: { operation: 'openWindow', url: '/' }
-                }
-              }
-            }
-          });
-
-          const validSubs = [];
-          await Promise.all(
-            subs.map(async (sub) => {
-              try {
-                await webpush.sendNotification(sub, payload);
-                validSubs.push(sub);
-              } catch (err) {
-                // Remove inscrições expiradas ou revogadas (404/410)
-                if (err.statusCode !== 404 && err.statusCode !== 410) {
-                  validSubs.push(sub);
-                }
-              }
-            })
-          );
-          await redisCommand('SET', SUBS_KEY, JSON.stringify(validSubs));
-        }
+      try {
+        await sendPushNotifications(newArticle);
+      } catch (pushErr) {
+        console.error('Falha ao enviar Web Push:', pushErr);
       }
 
       return res.status(201).json(newArticle);
