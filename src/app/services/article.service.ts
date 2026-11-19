@@ -1,5 +1,8 @@
-import { Injectable, signal, effect } from '@angular/core';
+import { Injectable, signal, inject } from '@angular/core';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
 import { Article } from '../models/article.model';
+import { AuthService } from './auth.service';
 
 const INITIAL_ARTICLES: Article[] = [
   {
@@ -46,36 +49,49 @@ const INITIAL_ARTICLES: Article[] = [
 
 @Injectable({ providedIn: 'root' })
 export class ArticleService {
-  private readonly STORAGE_KEY = 'b4comenta_articles_v1';
+  private http = inject(HttpClient);
+  private auth = inject(AuthService);
 
-  readonly articles = signal<Article[]>(this.loadFromStorage());
+  readonly articles = signal<Article[]>(INITIAL_ARTICLES);
 
   constructor() {
-    effect(() => {
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.articles()));
-    });
+    this.loadArticles();
   }
 
-  private loadFromStorage(): Article[] {
+  private getAuthHeaders(): HttpHeaders {
+    const token = sessionStorage.getItem('b4_admin_token') || '';
+    return new HttpHeaders({ Authorization: `Bearer ${token}` });
+  }
+
+  async loadArticles(): Promise<void> {
     try {
-      const saved = localStorage.getItem(this.STORAGE_KEY);
-      return saved ? JSON.parse(saved) : INITIAL_ARTICLES;
-    } catch {
-      return INITIAL_ARTICLES;
+      const data = await firstValueFrom(this.http.get<Article[]>('/api/articles'));
+      if (Array.isArray(data) && data.length > 0) {
+        this.articles.set(data);
+      }
+    } catch (err) {
+      console.error('Erro ao carregar matérias:', err);
     }
   }
 
-  addArticle(data: Omit<Article, 'id' | 'tag' | 'date'>): void {
-    const newArticle: Article = {
-      ...data,
-      id: 'b4-' + Date.now(),
-      tag: data.category.toUpperCase(),
-      date: new Date().toLocaleDateString('pt-BR')
-    };
-    this.articles.update(list => [newArticle, ...list]);
+  async addArticle(data: Omit<Article, 'id' | 'tag' | 'date'>): Promise<void> {
+    const created = await firstValueFrom(
+      this.http.post<Article>('/api/articles', data, { headers: this.getAuthHeaders() })
+    );
+    this.articles.update((list) => [
+      created,
+      ...list.filter((a) => !a.id.startsWith('demo-'))
+    ]);
   }
 
-  deleteArticle(id: string): void {
-    this.articles.update(list => list.filter(a => a.id !== id));
+  async deleteArticle(id: string): Promise<void> {
+    if (!id.startsWith('demo-')) {
+      await firstValueFrom(
+        this.http.delete(`/api/articles?id=${encodeURIComponent(id)}`, {
+          headers: this.getAuthHeaders()
+        })
+      );
+    }
+    this.articles.update((list) => list.filter((a) => a.id !== id));
   }
 }

@@ -17,14 +17,12 @@ export class Portal {
 
   dialogRef = viewChild<ElementRef<HTMLDialogElement>>('articleDialog');
 
-  // Estados reativos da interface
   menuOpen = signal(false);
   searchOpen = signal(false);
   searchQuery = signal('');
   activeFilter = signal('');
   selectedArticle = signal<Article | null>(null);
 
-  // Data atual no topo e ano no rodapé
   todayFormatted = new Date().toLocaleDateString('pt-BR', {
     day: '2-digit',
     month: 'long',
@@ -32,7 +30,6 @@ export class Portal {
   });
   currentYear = new Date().getFullYear();
 
-  // Lista filtrada automaticamente sempre que busca, filtro ou artigos mudarem
   filteredArticles = computed(() => {
     const filter = this.activeFilter().toLowerCase();
     const q = this.searchQuery().trim().toLowerCase();
