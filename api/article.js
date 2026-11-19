@@ -17,14 +17,6 @@ const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_
 const ARTICLES_KEY = 'b4comenta:articles';
 const SUBS_KEY = 'b4comenta:push_subs';
 
-if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
-  webpush.setVapidDetails(
-    process.env.VAPID_SUBJECT || 'mailto:contato@b4comenta.com',
-    process.env.VAPID_PUBLIC_KEY,
-    process.env.VAPID_PRIVATE_KEY
-  );
-}
-
 async function redisCommand(command, ...args) {
   if (!REDIS_URL || !REDIS_TOKEN) {
     throw new Error('Variáveis do Upstash Redis não configuradas.');
@@ -54,7 +46,7 @@ module.exports = async (req, res) => {
     if (req.method === 'GET') {
       const raw = await redisCommand('GET', ARTICLES_KEY);
       const articles = raw ? JSON.parse(raw) : [];
-      return res.status(200).json(articles);
+      return res.status(200).json(Array.isArray(articles) ? articles : []);
     }
 
     if (!isAuthorized(req)) {
@@ -62,7 +54,7 @@ module.exports = async (req, res) => {
     }
 
     if (req.method === 'POST') {
-      const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+      const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body || {};
       const newArticle = {
         id: 'b4-' + Date.now(),
         title: String(body.title || '').trim(),
@@ -80,32 +72,34 @@ module.exports = async (req, res) => {
       await redisCommand('SET', ARTICLES_KEY, JSON.stringify(updated));
 
       // Dispara Web Push para os inscritos
-      const rawSubs = await redisCommand('GET', SUBS_KEY);
-      const subs = rawSubs ? JSON.parse(rawSubs) : [];
-      if (subs.length > 0 && process.env.VAPID_PUBLIC_KEY) {
-        const payload = JSON.stringify({
-          notification: {
-            title: `B4 Comenta | ${newArticle.category}`,
-            body: newArticle.title,
-            icon: '/icons/icon-192x192.png',
-            data: { url: '/' }
-          }
-        });
-
-        const validSubs = [];
-        await Promise.all(
-          subs.map(async (sub) => {
-            try {
-              await webpush.sendNotification(sub, payload);
-              validSubs.push(sub);
-            } catch (err) {
-              if (err.statusCode !== 404 && err.statusCode !== 410) {
-                validSubs.push(sub);
-              }
+      if (webpush && process.env.VAPID_PUBLIC_KEY) {
+        const rawSubs = await redisCommand('GET', SUBS_KEY);
+        const subs = rawSubs ? JSON.parse(rawSubs) : [];
+        if (subs.length > 0) {
+          const payload = JSON.stringify({
+            notification: {
+              title: `B4 Comenta | ${newArticle.category}`,
+              body: newArticle.title,
+              icon: '/icons/icon-192x192.png',
+              data: { url: '/' }
             }
-          })
-        );
-        await redisCommand('SET', SUBS_KEY, JSON.stringify(validSubs));
+          });
+
+          const validSubs = [];
+          await Promise.all(
+            subs.map(async (sub) => {
+              try {
+                await webpush.sendNotification(sub, payload);
+                validSubs.push(sub);
+              } catch (err) {
+                if (err.statusCode !== 404 && err.statusCode !== 410) {
+                  validSubs.push(sub);
+                }
+              }
+            })
+          );
+          await redisCommand('SET', SUBS_KEY, JSON.stringify(validSubs));
+        }
       }
 
       return res.status(201).json(newArticle);
