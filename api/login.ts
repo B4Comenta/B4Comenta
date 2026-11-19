@@ -5,17 +5,21 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Método não permitido' });
   }
 
-  const { password } = req.body || {};
+  const body =
+    typeof req.body === 'string'
+      ? JSON.parse(req.body || '{}')
+      : (req.body || {});
+
+  const password = body.password;
   const adminPassword = process.env['ADMIN_PASSWORD'];
 
   if (!adminPassword) {
     return res.status(500).json({ error: 'ADMIN_PASSWORD não configurada no servidor.' });
   }
 
-  if (password === adminPassword) {
-    // Retorna um token de sessão (pode ser usado no header Authorization depois)
-    return res.status(200).json({ ok: true, token: adminPassword });
+  if (password && password.trim() === adminPassword.trim()) {
+    return res.status(200).json({ ok: true, token: adminPassword.trim() });
   }
 
-  return res.status(401).json({ error: 'Senha incorreta.' });
+  return res.status(401).json({ error: 'Senha inválida.' });
 }
