@@ -1,0 +1,23 @@
+.admin-wrap { max-width: 900px; margin: 45px auto; padding: 0 20px; }
+.admin-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+.admin-top h1 { font: 900 42px var(--display); margin: 5px 0; }
+.admin-panel { background: #fff; border: 1px solid #ddd; padding: 25px; margin-bottom: 20px; }
+.admin-panel h2 { font: 800 27px var(--display); margin: 0 0 18px; }
+.field { display: flex; flex-direction: column; gap: 7px; margin-bottom: 15px; }
+.field label { font-size: 10px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; }
+.field input, .field textarea, .field select { border: 1px solid #d5d8db; padding: 12px; font: 13px var(--body); width: 100%; background: #fff; }
+.field textarea { min-height: 180px; resize: vertical; }
+.admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+.admin-list { display: flex; flex-direction: column; }
+.admin-row { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #eee; padding: 13px 0; gap: 15px; }
+.admin-row b { font: 700 19px var(--display); }
+.admin-row small { display: block; color: #777; font-size: 10px; }
+.delete-btn { background: #fff; border: 1px solid #e2a1a4; color: #c22; padding: 8px 10px; cursor: pointer; font-size: 10px; font-weight: 800; }
+.notice { font-size: 12px; line-height: 1.7; background: #fff5d9; padding: 13px; border-left: 3px solid #e4aa27; margin-bottom: 18px; }
+.admin-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.admin-actions button { cursor: pointer; }
+
+@media (max-width: 600px) {
+  .admin-grid { grid-template-columns: 1fr; }
+  .admin-top { align-items: flex-start; gap: 15px; flex-direction: column; }
+}

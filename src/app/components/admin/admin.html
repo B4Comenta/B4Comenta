@@ -1,0 +1,79 @@
+<div class="topline">
+    <div class="wrap topline-inner">
+      <span>B4 COMENTA • PAINEL EDITORIAL</span>
+      <a routerLink="/">VOLTAR AO PORTAL ↗</a>
+    </div>
+  </div>
+  
+  <main class="admin-wrap">
+    <div class="admin-top">
+      <div>
+        <span class="eyebrow">GESTÃO DE CONTEÚDO</span>
+        <h1>Painel editorial<span style="color:rgb(3, 24, 146)">.</span></h1>
+        <p style="font-size:12px;color:#777">Cadastre e organize as matérias do B4 Comenta.</p>
+      </div>
+      <a class="button button-red" routerLink="/">VER PORTAL ↗</a>
+    </div>
+  
+    <div class="notice">
+      <b>Importante:</b> este é um painel demonstrativo. As matérias ficam salvas somente neste navegador (localStorage). Não há login seguro, banco de dados ou publicação compartilhada entre dispositivos. Antes de colocar o portal no ar como veículo real, será necessário conectar um CMS/backend com autenticação.
+    </div>
+  
+    <section class="admin-panel">
+      <h2>Nova matéria</h2>
+      <form (ngSubmit)="onSubmit()">
+        <div class="field">
+          <label for="title">Título</label>
+          <input id="title" name="title" [(ngModel)]="title" maxlength="120" required placeholder="Título da matéria">
+        </div>
+  
+        <div class="field">
+          <label for="excerpt">Linha fina / resumo</label>
+          <input id="excerpt" name="excerpt" [(ngModel)]="excerpt" maxlength="220" required placeholder="Resumo objetivo da notícia">
+        </div>
+  
+        <div class="admin-grid">
+          <div class="field">
+            <label for="category">Editoria</label>
+            <select id="category" name="category" [(ngModel)]="category">
+              @for (cat of categories; track cat) {
+                <option [value]="cat">{{ cat }}</option>
+              }
+            </select>
+          </div>
+  
+          <div class="field">
+            <label for="image">URL da imagem (opcional)</label>
+            <input id="image" name="image" [(ngModel)]="image" type="url" placeholder="https://...">
+          </div>
+        </div>
+  
+        <div class="field">
+          <label for="body">Texto da matéria</label>
+          <textarea id="body" name="body" [(ngModel)]="body" required placeholder="Escreva a matéria. Separe os parágrafos com uma linha em branco."></textarea>
+        </div>
+  
+        <div class="admin-actions">
+          <button class="button button-red" type="submit">PUBLICAR NO NAVEGADOR ↗</button>
+          <button class="button button-outline" type="button" (click)="resetForm()">LIMPAR CAMPOS</button>
+        </div>
+      </form>
+    </section>
+  
+    <section class="admin-panel">
+      <h2>Matérias cadastradas</h2>
+      <div class="admin-list">
+        @for (a of articleService.articles(); track a.id) {
+          <div class="admin-row">
+            <div>
+              <b>{{ a.title }}</b>
+              <small>{{ a.category }} • {{ a.date || 'Sem data' }}</small>
+            </div>
+            <button class="delete-btn" type="button" (click)="onDelete(a.id)">EXCLUIR</button>
+          </div>
+        } @empty {
+          <p style="font-size:12px;color:#777">Nenhuma matéria cadastrada.</p>
+        }
+      </div>
+    </section>
+  </main>

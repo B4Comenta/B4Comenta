@@ -1,0 +1,220 @@
+<div class="topline">
+    <div class="wrap topline-inner">
+      <span>JORNALISMO ESPORTIVO • BAHIA • NORDESTE</span>
+      <span>{{ todayFormatted }}</span>
+    </div>
+  </div>
+  
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <a class="brand" href="#inicio" (click)="filterBy('')" aria-label="B4 Comenta início">
+        <span class="brand-mark">B4</span>
+        <span class="brand-name">COMENTA<small>INFORMAÇÃO EM JOGO</small></span>
+      </a>
+  
+      <button class="menu-toggle" (click)="menuOpen.set(!menuOpen())" aria-label="Abrir menu">☰</button>
+  
+      <nav [class.open]="menuOpen()">
+        <a href="#inicio" (click)="filterBy(''); menuOpen.set(false)">Início</a>
+        <a href="#bahia" (click)="menuOpen.set(false)">Bahia</a>
+        <a href="#vitoria" (click)="menuOpen.set(false)">Vitória</a>
+        <a href="#nordeste" (click)="menuOpen.set(false)">Nordeste</a>
+        <a href="#brasil" (click)="menuOpen.set(false)">Brasil</a>
+        <a href="#opiniao" (click)="menuOpen.set(false)">Opinião</a>
+      </nav>
+  
+      <button class="search-toggle" (click)="searchOpen.set(!searchOpen())" aria-label="Abrir busca">⌕</button>
+    </div>
+  
+    <div class="search-panel wrap" [class.open]="searchOpen()">
+      <input
+        type="search"
+        [ngModel]="searchQuery()"
+        (ngModelChange)="searchQuery.set($event)"
+        (keydown.enter)="triggerSearch()"
+        placeholder="Buscar notícias, clubes ou assuntos..."
+      >
+      <button (click)="triggerSearch()">Buscar</button>
+    </div>
+  </header>
+  
+  <main id="inicio">
+    <section class="hero wrap">
+      <div class="hero-copy">
+        <div class="eyebrow"><i></i> A NOTÍCIA DO JOGO</div>
+        <p class="hero-kicker">FUTEBOL COM INFORMAÇÃO E CONTEXTO</p>
+        <h1>O futebol tem notícia.<br><em>O B4 tem contexto.</em></h1>
+        <p class="hero-desc">Cobertura, bastidores e análise do futebol baiano e nordestino, com olhar jornalístico e identidade própria.</p>
+        <a class="button button-red" href="#ultimas">ACOMPANHE AS NOTÍCIAS <span>↗</span></a>
+      </div>
+      <div class="hero-art" role="img" aria-label="Estádio de futebol iluminado à noite">
+        <div class="art-grid"></div>
+        <div class="art-stamp">B4<br><small>COMENTA</small></div>
+        <div class="art-caption"><span>COBERTURA ESPORTIVA</span><b>O JOGO<br>É AQUI.</b></div>
+      </div>
+    </section>
+  
+    <section class="ticker">
+      <div class="wrap ticker-inner">
+        <b>EM CAMPO</b>
+        <span>BAHIA</span>
+        <span>VITÓRIA</span>
+        <span>FUTEBOL NORDESTINO</span>
+        <span>BRASIL</span>
+        <span>MERCADO DA BOLA</span>
+      </div>
+    </section>
+  
+    <section class="section wrap" id="ultimas">
+      <div class="section-heading">
+        <div>
+          <span class="eyebrow">ACOMPANHE</span>
+          <h2>Últimas notícias<span>.</span></h2>
+        </div>
+        @if (activeFilter()) {
+          <button class="button button-outline" (click)="filterBy('')" style="cursor:pointer">
+            FILTRO: {{ activeFilter().toUpperCase() }} (LIMPAR ×)
+          </button>
+        } @else {
+          <span class="section-note">INFORMAÇÃO EM MOVIMENTO</span>
+        }
+      </div>
+  
+      <div class="content-layout">
+        <div class="news-grid">
+          @for (a of filteredArticles(); track a.id) {
+            <article class="news-card" (click)="openArticle(a)">
+              <div class="news-image">
+                @if (a.image) {
+                  <img [src]="a.image" [alt]="a.title">
+                } @else {
+                  <div class="news-placeholder">B4</div>
+                }
+                <span class="image-label">{{ a.tag || a.category }}</span>
+              </div>
+              <div class="news-body">
+                <div class="news-meta">{{ a.category }} &nbsp;•&nbsp; {{ a.date || 'B4 Comenta' }}</div>
+                <h3>{{ a.title }}</h3>
+                <p>{{ a.excerpt }}</p>
+                <span class="read-more">LER MATÉRIA ↗</span>
+              </div>
+            </article>
+          } @empty {
+            <div class="empty-state">Nenhuma notícia encontrada. Tente outro termo de busca.</div>
+          }
+        </div>
+  
+        <aside class="sidebar">
+          <div class="side-card dark-card">
+            <span class="eyebrow">B4 COMENTA</span>
+            <h3>Mais que o placar.<br><em>O que está por trás dele.</em></h3>
+            <p>Notícia, contexto e análise para quem vive o futebol.</p>
+            <a href="#sobre">CONHEÇA O PROJETO ↗</a>
+          </div>
+  
+          <div class="side-card">
+            <span class="eyebrow">ALERTAS EM TEMPO REAL</span>
+            <h3>Receba notícias no navegador</h3>
+            <p>Ative as notificações para saber quando sair matéria nova.</p>
+            <button class="button button-red" type="button" (click)="pushService.subscribe()" style="cursor:pointer; width:100%; justify-content:center;">
+              ATIVAR NOTIFICAÇÕES 🔔
+            </button>
+          </div>
+  
+          <div class="side-card">
+            <span class="eyebrow">EDITORIAS</span>
+            <h3>Explore o B4</h3>
+            <div class="editoria-links">
+              <a href="#ultimas" (click)="$event.preventDefault(); filterBy('Bahia')">Bahia <b>↗</b></a>
+              <a href="#ultimas" (click)="$event.preventDefault(); filterBy('Vitória')">Vitória <b>↗</b></a>
+              <a href="#ultimas" (click)="$event.preventDefault(); filterBy('Nordeste')">Futebol nordestino <b>↗</b></a>
+              <a href="#ultimas" (click)="$event.preventDefault(); filterBy('Brasil')">Futebol brasileiro <b>↗</b></a>
+              <a href="#ultimas" (click)="$event.preventDefault(); filterBy('Opinião')">Opinião <b>↗</b></a>
+            </div>
+          </div>
+  
+          <div class="side-card follow-card">
+            <span class="eyebrow">NAS REDES</span>
+            <h3>O B4 também está no Instagram.</h3>
+            <a class="button button-outline" href="https://www.instagram.com/b4comenta/" target="_blank" rel="noreferrer">SEGUIR @B4COMENTA ↗</a>
+          </div>
+        </aside>
+      </div>
+    </section>
+  
+    <section class="band" id="bahia">
+      <div class="wrap band-inner">
+        <div>
+          <span class="eyebrow">EDITORIA EM DESTAQUE</span>
+          <h2>Futebol baiano<br><em>em primeiro plano.</em></h2>
+        </div>
+        <p>Do noticiário dos clubes às histórias que movimentam os gramados da Bahia.</p>
+        <a href="#ultimas" class="button button-light" (click)="$event.preventDefault(); filterBy('Bahia')">VER NOTÍCIAS ↗</a>
+      </div>
+    </section>
+  
+    <section class="section wrap category-strip" id="vitoria">
+      <div class="category-box">
+        <span>01 / CLUBE</span>
+        <h3>Esporte Clube<br>Vitória</h3>
+        <a href="#ultimas" (click)="$event.preventDefault(); filterBy('Vitória')">ACOMPANHAR ↗</a>
+      </div>
+      <div class="category-box" id="nordeste">
+        <span>02 / REGIÃO</span>
+        <h3>Futebol<br>nordestino</h3>
+        <a href="#ultimas" (click)="$event.preventDefault(); filterBy('Nordeste')">ACOMPANHAR ↗</a>
+      </div>
+      <div class="category-box" id="brasil">
+        <span>03 / CENÁRIO</span>
+        <h3>Futebol<br>brasileiro</h3>
+        <a href="#ultimas" (click)="$event.preventDefault(); filterBy('Brasil')">ACOMPANHAR ↗</a>
+      </div>
+      <div class="category-box" id="opiniao">
+        <span>04 / ANÁLISE</span>
+        <h3>Opinião<br>e debate</h3>
+        <a href="#ultimas" (click)="$event.preventDefault(); filterBy('Opinião')">ACOMPANHAR ↗</a>
+      </div>
+    </section>
+  
+    <section class="about-section" id="sobre">
+      <div class="wrap about-inner">
+        <div class="about-logo">B4<span>.</span></div>
+        <div>
+          <span class="eyebrow">QUEM SOMOS</span>
+          <h2>Jornalismo esportivo<br>com identidade.</h2>
+          <p>O B4 Comenta é um projeto de comunicação esportiva dedicado à informação, à cobertura e à análise do futebol, com atenção especial à Bahia e ao Nordeste. Nosso compromisso é contextualizar os fatos e valorizar as histórias do esporte.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+  
+  <footer>
+    <div class="wrap footer-inner">
+      <a class="brand" href="#inicio">
+        <span class="brand-mark">B4</span>
+        <span class="brand-name">COMENTA<small>INFORMAÇÃO EM JOGO</small></span>
+      </a>
+      <span>© {{ currentYear }} B4 Comenta. Todos os direitos reservados.</span>
+      <a routerLink="/admin">Área administrativa ↗</a>
+    </div>
+  </footer>
+  
+  <dialog #articleDialog class="article-dialog">
+    <button class="dialog-close" (click)="closeArticle()" aria-label="Fechar">×</button>
+    @if (selectedArticle(); as a) {
+      <article class="article-full">
+        <div class="news-meta">{{ a.category }} • {{ a.date || 'B4 Comenta' }}</div>
+        <h1>{{ a.title }}</h1>
+        <p class="lead">{{ a.excerpt }}</p>
+        <div class="article-cover">
+          @if (a.image) {
+            <img [src]="a.image" [alt]="a.title">
+          } @else {
+            <div class="news-placeholder">B4</div>
+          }
+        </div>
+        <div class="body-copy">{{ a.body }}</div>
+        <p class="news-meta" style="margin-top:28px">B4 COMENTA • INFORMAÇÃO EM JOGO</p>
+      </article>
+    }
+  </dialog>
