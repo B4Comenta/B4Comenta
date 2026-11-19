@@ -21,20 +21,32 @@ export class Admin {
   category = 'Bahia';
   image = '';
   body = '';
+  isSubmitting = false;
 
-  onSubmit(): void {
-    if (!this.title.trim() || !this.excerpt.trim() || !this.body.trim()) return;
+  async onSubmit(): Promise<void> {
+    if (!this.title.trim() || !this.excerpt.trim() || !this.body.trim() || this.isSubmitting) {
+      return;
+    }
 
-    this.articleService.addArticle({
-      title: this.title.trim(),
-      excerpt: this.excerpt.trim(),
-      category: this.category,
-      image: this.image.trim(),
-      body: this.body.trim()
-    });
+    this.isSubmitting = true;
+    try {
+      await this.articleService.addArticle({
+        title: this.title.trim(),
+        excerpt: this.excerpt.trim(),
+        category: this.category,
+        image: this.image.trim(),
+        body: this.body.trim()
+      });
 
-    this.resetForm();
-    this.toast.show('Matéria salva neste navegador. Volte ao portal para visualizar.');
+      this.resetForm();
+      this.toast.show('Matéria publicada na nuvem e notificação enviada!');
+    } catch (err: any) {
+      const msg = err?.error?.error || 'Erro ao publicar matéria no servidor.';
+      this.toast.show(msg);
+      console.error('Falha ao publicar:', err);
+    } finally {
+      this.isSubmitting = false;
+    }
   }
 
   resetForm(): void {
@@ -45,10 +57,14 @@ export class Admin {
     this.body = '';
   }
 
-  onDelete(id: string): void {
-    if (confirm('Excluir esta matéria deste navegador?')) {
-      this.articleService.deleteArticle(id);
-      this.toast.show('Matéria excluída deste navegador.');
+  async onDelete(id: string): Promise<void> {
+    if (confirm('Excluir esta matéria do portal?')) {
+      try {
+        await this.articleService.deleteArticle(id);
+        this.toast.show('Matéria excluída.');
+      } catch {
+        this.toast.show('Erro ao excluir matéria.');
+      }
     }
   }
 }
