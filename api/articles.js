@@ -1,21 +1,17 @@
-let webpush = null;
-try {
-  webpush = require('web-push');
-  if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
-    webpush.setVapidDetails(
-      process.env.VAPID_SUBJECT || 'mailto:contato@b4comenta.com',
-      process.env.VAPID_PUBLIC_KEY,
-      process.env.VAPID_PRIVATE_KEY
-    );
-  }
-} catch (e) {
-  console.warn('web-push indisponível:', e.message);
-}
+const webpush = require('web-push');
 
 const REDIS_URL = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
 const REDIS_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
 const ARTICLES_KEY = 'b4comenta:articles';
 const SUBS_KEY = 'b4comenta:push_subs';
+
+if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(
+    process.env.VAPID_SUBJECT || 'mailto:contato@b4comenta.com',
+    process.env.VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY
+  );
+}
 
 async function redisCommand(command, ...args) {
   if (!REDIS_URL || !REDIS_TOKEN) {
@@ -71,17 +67,23 @@ module.exports = async (req, res) => {
       const updated = [newArticle, ...articles];
       await redisCommand('SET', ARTICLES_KEY, JSON.stringify(updated));
 
-      // Dispara Web Push para os inscritos
-      if (webpush && process.env.VAPID_PUBLIC_KEY) {
+      // Dispara Web Push para os inscritos no formato esperado pelo ngsw-worker do Angular
+      if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
         const rawSubs = await redisCommand('GET', SUBS_KEY);
         const subs = rawSubs ? JSON.parse(rawSubs) : [];
+
         if (subs.length > 0) {
           const payload = JSON.stringify({
             notification: {
               title: `B4 Comenta | ${newArticle.category}`,
               body: newArticle.title,
               icon: '/icons/icon-192x192.png',
-              data: { url: '/' }
+              badge: '/icons/icon-72x72.png',
+              data: {
+                onActionClick: {
+                  default: { operation: 'openWindow', url: '/' }
+                }
+              }
             }
           });
 
@@ -92,6 +94,7 @@ module.exports = async (req, res) => {
                 await webpush.sendNotification(sub, payload);
                 validSubs.push(sub);
               } catch (err) {
+                // Remove inscrições expiradas ou revogadas (404/410)
                 if (err.statusCode !== 404 && err.statusCode !== 410) {
                   validSubs.push(sub);
                 }
